@@ -1,3 +1,4 @@
 fastapi[standard]==0.115.7
 streamlit==1.41.1
 ultralytics==8.3.68
+google-generativeai
