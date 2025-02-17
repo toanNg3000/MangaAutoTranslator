@@ -3,3 +3,4 @@ mltranslator/models
 __pycache__/
 *.jpg
 *.egg-info
+.env

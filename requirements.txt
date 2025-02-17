@@ -3,3 +3,4 @@ streamlit==1.41.1
 ultralytics==8.3.68
 google-generativeai
 manga-ocr
+pip install git+https://github.com/ChaoningZhang/MobileSAM.git

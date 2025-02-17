@@ -2,7 +2,7 @@ from typing import List
 from PIL import Image
 from manga_ocr import MangaOcr
 from mltranslator import PROJECT_DIR
-from mltranslator.util.helper import set_image_dpi
+from mltranslator.utils.helper import set_image_dpi
 
 class JapaneseReader:
     def __init__(self) -> None:

@@ -2,7 +2,7 @@ from ultralytics import YOLO
 
 from mltranslator import PROJECT_DIR
 
-from mltranslator.util.helper import *
+from mltranslator.utils.helper import *
 import numpy as np
 import cv2
 import PIL
