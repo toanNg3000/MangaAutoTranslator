@@ -7,7 +7,7 @@ from mltranslator.utils.helper import set_image_dpi
 class JapaneseReader:
     def __init__(self) -> None:
         self.model = MangaOcr(
-            force_cpu=True,
+            force_cpu=False,
             pretrained_model_name_or_path=f'{PROJECT_DIR}/mltranslator/models/jap_ocr'
         )
 

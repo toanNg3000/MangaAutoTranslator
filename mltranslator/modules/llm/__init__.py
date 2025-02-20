@@ -1,6 +1,7 @@
 import os
 import google.generativeai as genai
 import getpass
+import ollama
 
 API_KEY = os.environ["GEMINI_API_KEY"] if "GEMINI_API_KEY" in os.environ.keys() else None
 genai.configure(api_key=API_KEY)
@@ -45,4 +46,34 @@ class GeminiLLM():
     def translate(self,input_prompt:str, stream=None)->str:
         input_prompt = self.preprocess_input(input_prompt)
         response = self.generate_content(input_prompt, stream)
+        return response
+
+class OllamaLLM():
+    def __init__(
+        self,
+        model_name:str="qwen2.5:7b",
+        system_instruction:str=SYSTEM_PROMPT,
+        temperature=0.0,
+    ) -> None:
+        self.model_name = model_name
+        self.system_instruction = system_instruction
+        self.temperature = temperature
+
+    @staticmethod
+    def preprocess_input(input_prompt:str)->str:
+        processed = f"<translate> {input_prompt} </translate>"
+        return processed
+
+    def generate_content(self, input_prompt:str)->str:
+        response = ollama.generate(
+            model=self.model_name,
+            prompt=input_prompt,
+            system=self.system_instruction,
+            options= {'temperature': self.temperature}
+        )
+        return response["response"]
+    
+    def translate(self,input_prompt:str)->str:
+        input_prompt = self.preprocess_input(input_prompt)
+        response = self.generate_content(input_prompt)
         return response
