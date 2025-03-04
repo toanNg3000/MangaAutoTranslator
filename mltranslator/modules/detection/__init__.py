@@ -4,6 +4,7 @@ from mltranslator import PROJECT_DIR
 
 from mltranslator.utils.helper import *
 import numpy as np
+import typing
 import cv2
 import PIL
 
@@ -68,3 +69,36 @@ class TextDetector():
             list_result.append(ocr_cropped_image)
         cv2.putText(yolo_img, "YOLO", (w//2, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2)
         return yolo_img, list_result
+    
+    def get_detect_output_api(self, image: PIL.ImageFile) -> typing.Dict:
+        # The existing implementation remains the same as in your original code
+        list_sliced_images = split_image(image)
+        list_sliced_images_size = []
+        
+        for i, sliced_image in enumerate(list_sliced_images):
+            list_sliced_images_size.append(sliced_image.size)
+        
+        cumulative_heights = [cumulative_height(list_sliced_images_size[:i+1]) for i in range(len(list_sliced_images_size))]
+        
+        yolo_dict = []
+        for i, _ in enumerate(list_sliced_images):
+            result = self.yolo_model.predict(
+                list_sliced_images[i], 
+                device='cpu', 
+                half=False, 
+                conf=0.5, 
+                iou=0.6, 
+                augment=False, 
+                verbose=False
+            )[0]
+            
+            for box in result.boxes:
+                xmin, ymin, xmax, ymax = map(int, box.xyxy[0].tolist())
+                if i > 0:
+                    ymin += cumulative_heights[i-1]
+                    ymax += cumulative_heights[i-1]
+                yolo_dict.append({f"image_{i}":[xmin, ymin, xmax, ymax]})
+        
+        yolo_boxes = merge_bounding_boxes(yolo_dict)
+
+        return {"list_bboxes": yolo_boxes}
