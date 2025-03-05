@@ -7,6 +7,8 @@ from ultralytics import YOLO
 import numpy as np
 import cv2
 from mltranslator import PROJECT_DIR
+from PIL import Image
+import datetime
 
 def generate_mask(img: np.ndarray, blk_list: List[TextBlock], default_kernel_size=5):
     h, w, c = img.shape
@@ -47,7 +49,7 @@ def generate_mask(img: np.ndarray, blk_list: List[TextBlock], default_kernel_siz
 
 class Inpaintor:
     def __init__(self):
-        self.bubble_detection = YOLO(f'{PROJECT_DIR}/mltranslator/models/text_detect/best.pt')
+        self.bubble_detection = YOLO(f'{PROJECT_DIR}/mltranslator/models/detection/best.pt')
         self.text_segmentation = YOLO(f'{PROJECT_DIR}/mltranslator/models/inpainting/comic-text-segmenter.pt')
         img_size_process=512
         self.inpainter = LaMa('cuda')
@@ -74,6 +76,17 @@ class Inpaintor:
         inpaint_input_img = cv2.convertScaleAbs(inpaint_input_img) 
         inpaint_input_img = cv2.cvtColor(inpaint_input_img, cv2.COLOR_BGR2RGB)
         return mask, inpaint_input_img
+    
+    def inpaint_api(self, image_path:str) -> dict:
+        pil_image = Image.open(image_path)
+        pil_image = pil_image.convert("RGB")
+
+        mask, inpaint_input_img = self.inpaint(pil_image)
+        image_name = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        inpaint_path = f"dataset/test_inpaint/{image_name}.jpg"
+        Image.fromarray(inpaint_input_img).save(inpaint_path)
+
+        return { "inpaint_path": inpaint_path }
     
     def inpaint_custom(self, pil_img, custom_mask):
         # print("Custom mask")

@@ -14,7 +14,7 @@ class TextDetector():
 
         self.yolo_model_path = yolo_model_path
         self.verbose = verbose
-        self.yolo_model = YOLO(yolo_model_path,verbose=verbose)
+        self.yolo_model = YOLO(yolo_model_path,verbose=verbose).to('cuda')
 
     def get_detect_output(self, image: PIL.ImageFile):
         list_sliced_images = split_image(image)
@@ -27,7 +27,7 @@ class TextDetector():
         yolo_dict = []
         # start_time = time.time()
         for i, _ in enumerate(list_sliced_images):
-            result = self.yolo_model.predict(list_sliced_images[i], device='cpu', half=False, conf=0.5, iou=0.6, augment=False, verbose=False)[0]
+            result = self.yolo_model.predict(list_sliced_images[i], device='cuda', half=False, conf=0.5, iou=0.6, augment=False, verbose=False)[0]
             for box in result.boxes:
                 xmin, ymin, xmax, ymax = map(int, box.xyxy[0].tolist())
                 if i > 0:

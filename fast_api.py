@@ -7,6 +7,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 from mltranslator.modules.detection import TextDetector
 from mltranslator.modules.jap_ocr import JapaneseReader
+from mltranslator.modules.inpainting.inpaintor import Inpaintor
 from mltranslator.modules.llm import GeminiLLM
 import io
 from fastapi import Request
@@ -25,6 +26,9 @@ class OCRRequest(BaseModel):
 class TranslateRequest(BaseModel):
     input_texts: List[str]
 
+class InpaintRequest(BaseModel):
+    image_path: str
+
 # Create FastAPI app
 app = FastAPI(title="Text Detection API")
 
@@ -32,6 +36,7 @@ app = FastAPI(title="Text Detection API")
 text_detector = TextDetector()
 japanese_reader = JapaneseReader()
 llm = GeminiLLM()
+inpanitor = Inpaintor()
 
 # Ensure output directory exists
 OUTPUT_DIR = os.path.join(PROJECT_DIR, 'outputs')
@@ -95,7 +100,7 @@ async def translate(request: TranslateRequest):
     - list_texts: list of dectected text.
     
     Returns:
-    - OCR results with text for each bounding box
+    - Translated text
     """
     try:
         prompt_input = ""
@@ -121,7 +126,29 @@ async def translate(request: TranslateRequest):
             text = result[first_colons_idx+2:]
             results[idx] = text
 
-        return results
+        return { "translated_texts": results }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/inpaint")
+async def perform_inpaint(request: InpaintRequest):
+    """
+    Endpoint for performing OCR on specified bounding boxes
+    
+    Expects:
+    - image_path: Path to the image file
+    
+    Returns:
+    - Output path to the inpainted image
+    """
+    try:
+        # Perform OCR
+        inpaint_result = inpanitor.inpaint_api(
+            request.image_path, 
+        )
+        return inpaint_result
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
