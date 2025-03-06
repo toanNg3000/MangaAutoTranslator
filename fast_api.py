@@ -81,8 +81,6 @@ async def perform_ocr(request: OCRRequest):
     try:
         # Perform OCR
         ocr_results = japanese_reader.get_list_orc_api(
-            # data["image_path"], 
-            # data["list_bboxes"]
             request.image_path, 
             request.list_bboxes
         )
