@@ -5,11 +5,12 @@ from mltranslator import PROJECT_DIR
 from mltranslator.utils.helper import set_image_dpi
 import numpy as np
 
+
 class JapaneseReader:
     def __init__(self) -> None:
         self.model = MangaOcr(
             force_cpu=False,
-            pretrained_model_name_or_path=f'{PROJECT_DIR}/mltranslator/models/jap_ocr'
+            pretrained_model_name_or_path=f"{PROJECT_DIR}/mltranslator/models/jap_ocr",
         )
 
     def predict(self, np_image):
@@ -21,8 +22,8 @@ class JapaneseReader:
             return ""
         except:
             return ""
-        
-    def get_list_ocr(self, list_cropped_images)->List[str]:
+
+    def get_list_ocr(self, list_cropped_images) -> List[str]:
         list_ocr_texts = []
         for cropped_image in list_cropped_images:
             txt = ""
@@ -31,7 +32,7 @@ class JapaneseReader:
             list_ocr_texts.append(txt)
         return list_ocr_texts
 
-    def get_list_orc_api(self, image_path: str, list_bboxes: Tuple[int,int,int,int]):
+    def get_list_orc_api(self, image_path: str, list_bboxes: Tuple[int, int, int, int]):
         img = Image.open(image_path)
         img = img.convert("RGB")
         w, h = img.size
@@ -55,8 +56,5 @@ class JapaneseReader:
 
         results = {}
         for i, bboxes in enumerate(list_bboxes):
-            results[i] = {
-                "bboxes": bboxes,
-                "text": list_ocr_text[i] # <--------
-            }
-        return { "ocr_results": results }
+            results[i] = {"bboxes": bboxes, "text": list_ocr_text[i]}
+        return results

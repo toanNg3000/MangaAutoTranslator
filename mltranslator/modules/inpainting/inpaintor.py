@@ -83,6 +83,8 @@ class Inpaintor:
 
         mask, inpaint_input_img = self.inpaint(pil_image)
         image_name = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        # TODO: this path should be configurable
         inpaint_path = f"dataset/test_inpaint/{image_name}.jpg"
         Image.fromarray(inpaint_input_img).save(inpaint_path)
 

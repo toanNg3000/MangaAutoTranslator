@@ -6,7 +6,7 @@ from PIL import Image
 def split_image(image, ratio=2):
     # Determine the dimensions of the image
     image_width, image_height = image.size
-    slice_height = ratio*image_width
+    slice_height = ratio * image_width
     # Calculate the number of full slices and the remaining height
     num_full_slices = image_height // slice_height
     remaining_height = image_height % slice_height
@@ -34,13 +34,15 @@ def split_image(image, ratio=2):
 
     return sliced_images
 
+
 def cumulative_height(images):
     return sum(height for _, height in images)
+
 
 def merge_bounding_boxes(boxes, threshold=10):
     # Sort the bounding boxes by ymin values
     boxes.sort(key=lambda x: (list(x.values())[0])[1])
-    
+
     if len(boxes) > 0:
         merged = [boxes[0]]  # Start with the first box
     else:
@@ -53,14 +55,14 @@ def merge_bounding_boxes(boxes, threshold=10):
         if key1 != key2:
             # Calculate the vertical distance between the boxes
             vertical_distance = ymin2 - ymax1
-            
+
             # If the vertical distance is below the threshold, merge the boxes
             if vertical_distance <= threshold:
                 merged[-1][key1] = (
                     min(xmin1, xmin2),
                     min(ymin1, ymin2),
                     max(xmax1, xmax2),
-                    max(ymax1, ymax2)
+                    max(ymax1, ymax2),
                 )
             else:
                 # Otherwise, keep the boxes separate
@@ -74,10 +76,10 @@ def merge_bounding_boxes(boxes, threshold=10):
             final_boxes.append(tuple(v))
     return final_boxes
 
+
 def set_image_dpi(image_np):
     # Convert NumPy array to PIL image
     im = Image.fromarray(cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB))
-    # im = Image.open('/mnt/Storage/project/hf/txt-detect-demo/output/arenow.jpg')
     # Get image dimensions
     length_x, width_y = im.size
     if length_x < 100 or width_y < 100:
@@ -86,18 +88,18 @@ def set_image_dpi(image_np):
         factor = 4
     else:
         factor = 2
-    
+
     # Calculate new size
     size = int(factor * length_x), int(factor * width_y)
-    
+
     # Resize the image
     im_resized = im.resize(size, Image.LANCZOS)
-    
+
     # Set DPI to 300 PPI (pixels per inch)
     dpi = (300, 300)
-    im_resized.info['dpi'] = dpi
-    
+    im_resized.info["dpi"] = dpi
+
     # Convert PIL image back to NumPy array
     im_resized_np = cv2.cvtColor(np.array(im_resized), cv2.COLOR_RGB2BGR)
-    
+
     return im_resized_np
