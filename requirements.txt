@@ -1,5 +1,4 @@
 fastapi[standard]==0.115.7
-streamlit==1.41.1
 ultralytics==8.3.68
 google-generativeai
 manga-ocr==0.1.14
@@ -7,4 +6,5 @@ opencv-python==4.11.0.86
 ollama
 pandas==2.2.3
 pillow==11.1.0
-pip install git+https://github.com/ChaoningZhang/MobileSAM.git
+largestinteriorrectangle>=0.2.0
+git+https://github.com/ChaoningZhang/MobileSAM.git
