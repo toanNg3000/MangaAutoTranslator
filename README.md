@@ -17,3 +17,20 @@ To run the program:
 ```sh
 python main.py
 ```
+
+Note: The translation module uses Gemini model. Simply set `GEMINI_API_KEY` environment variable to your Gemini api key before running the program.
+
+```sh
+export GEMINI_API_KEY="YOUR_API_KEY" # on linux
+# or
+set GEMINI_API_KEY=YOUR_API_KEY # on Windows
+```
+
+### Fast-API
+simply run:
+
+```sh
+uvicorn fast_api:app
+```
+
+then go to the `/docs` pages
