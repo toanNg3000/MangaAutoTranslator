@@ -18,10 +18,29 @@ class TextDetector:
         self,
         yolo_model_path: str = f"{PROJECT_DIR}/mltranslator/models/detection/best.pt",
         verbose: bool = False,
+        device: str = "cpu",
     ):
         self.yolo_model_path = yolo_model_path
         self.verbose = verbose
-        self.yolo_model = YOLO(yolo_model_path, verbose=verbose).to("cuda")
+        self.yolo_model = YOLO(yolo_model_path, verbose=verbose).to(device)
+        self._device = device
+
+    @property
+    def device(self):
+        return self._device
+
+    @device.setter
+    def device(self, _device: str):
+        if not isinstance(_device, str):
+            raise ValueError(
+                f'`device` should be a string and one of ("cpu", "cuda" or "mps"). '
+                f"Got: {_device}"
+            )
+        self.yolo_model.to(_device)
+        self._device = _device
+
+    def to(self, device: str):
+        self.device = device
 
     def get_detect_output(self, image: PIL.ImageFile):
         list_sliced_images = split_image(image)
@@ -39,7 +58,7 @@ class TextDetector:
         for i, _ in enumerate(list_sliced_images):
             result = self.yolo_model.predict(
                 list_sliced_images[i],
-                device="cuda",
+                device=self.device,
                 half=False,
                 conf=0.5,
                 iou=0.6,
@@ -80,10 +99,18 @@ class TextDetector:
                 2,
             )
 
-            x1_ocr = max(int(xmin) - ocr_padding, 0)  # Ensuring the value doesn't go below 0
-            y1_ocr = max(int(ymin) - ocr_padding_top_bottom, 0)  # Adding padding to the top
-            x2_ocr = min(int(xmax) + ocr_padding, w)  # Adjust according to the image width
-            y2_ocr = min(int(ymax) + ocr_padding_top_bottom, h)  # Adding padding to the bottom
+            x1_ocr = max(
+                int(xmin) - ocr_padding, 0
+            )  # Ensuring the value doesn't go below 0
+            y1_ocr = max(
+                int(ymin) - ocr_padding_top_bottom, 0
+            )  # Adding padding to the top
+            x2_ocr = min(
+                int(xmax) + ocr_padding, w
+            )  # Adjust according to the image width
+            y2_ocr = min(
+                int(ymax) + ocr_padding_top_bottom, h
+            )  # Adding padding to the bottom
 
             # x1_inpaint = max(int(xmin) - inpaint_padding, 0)  # Ensuring the value doesn't go below 0
             # y1_inpaint = max(int(ymin) - inpaint_padding_top_bottom, 0)  # Adding padding to the top
@@ -114,7 +141,7 @@ class TextDetector:
         for i, _ in enumerate(list_sliced_images):
             result = self.yolo_model.predict(
                 list_sliced_images[i],
-                device="cpu",
+                device=self.device,
                 half=False,
                 conf=0.5,
                 iou=0.6,

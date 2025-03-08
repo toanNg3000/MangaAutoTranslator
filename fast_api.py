@@ -27,12 +27,13 @@ class TranslateRequest(BaseModel):
 class InpaintRequest(BaseModel):
     image_path: str
 
+DEVICE = "cuda"
 
 # Create FastAPI app
 app = FastAPI(title="Text Detection API")
 
 # Initialize text detector
-text_detector = TextDetector()
+text_detector = TextDetector(device=DEVICE)
 japanese_reader = JapaneseReader()
 llm = GeminiLLM()
 inpanitor = Inpaintor()
