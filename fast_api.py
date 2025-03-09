@@ -156,7 +156,29 @@ async def perform_inpaint(request: InpaintRequest):
 
 @app.post("/full_process")
 async def perform_full_process(request: FullProcessRequest):
-    """ """
+    """
+    # desired json body
+    {
+        "data": {
+            "<image-id>": {
+                "data": {
+                    "1": {
+                        "bbox": Tuple[int, int, int, int],
+                        "ocr_text": str,
+                        "translate_text": str,
+                    },
+                    "2": {
+                        "bbox": Tuple[int, int, int, int],
+                        "ocr_text": str,
+                        "translate_text": str,
+                    }
+                },
+                "inpaint_path": str,
+            }
+        }
+    }
+    """
+
     # read image
     try:
         pil_image = PIL.Image.open(request.image_path)
@@ -165,13 +187,18 @@ async def perform_full_process(request: FullProcessRequest):
 
     try:
         list_bboxes = text_detector.get_detect_output_api(pil_image)
+
         # TODO: use cached image instead of loading again
+        # ocr
         ocr_results = japanese_reader.get_list_orc_api(
             request.image_path,
             list_bboxes,
         )
 
         ocr_texts = [ocr_result["text"] for ocr_result in ocr_results.values()]
+
+        # translate
+        # TODO: refactor this
         prompt_input = ""
         for i, t in enumerate(ocr_texts):
             prompt_input += f"{i}: {t}\n"
@@ -195,16 +222,23 @@ async def perform_full_process(request: FullProcessRequest):
             text = result[first_colons_idx + 2 :]
             translate_results[idx] = text
 
+        # inpaint
         inpaint_path = inpanitor.inpaint_api(request.image_path)
+        inpaint_path = inpaint_path["inpaint_path"]
 
-        return {
-            "data": {
-                "list_bboxes": list_bboxes,
-                "ocr_results": ocr_results,
-                "translate_results": translate_results,
-                "inpaint_path": inpaint_path,
+        image_datas = {}
+        for i, (bbox, ocr, translation) in enumerate(
+            zip(list_bboxes, ocr_texts, translate_results.values())
+        ):
+            image_data = {
+                "bbox": bbox,
+                "ocr_text": ocr,
+                "translation": translation,
             }
-        }
+            image_datas[i] = image_data
+
+        results = {"data": image_datas, "inpaint_path": inpaint_path}
+        return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Detection error: {str(e)}")
 
