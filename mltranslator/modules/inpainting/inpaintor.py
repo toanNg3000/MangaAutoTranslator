@@ -4,6 +4,7 @@ from mltranslator.utils.detection import combine_results, make_bubble_mask, bubb
 from mltranslator.utils.textblock import TextBlock, sort_regions, visualize_textblocks
 from typing import List
 from ultralytics import YOLO
+import torch
 import numpy as np
 import cv2
 from mltranslator import PROJECT_DIR
@@ -52,12 +53,13 @@ class Inpaintor:
         self.bubble_detection = YOLO(f'{PROJECT_DIR}/mltranslator/models/detection/best.pt')
         self.text_segmentation = YOLO(f'{PROJECT_DIR}/mltranslator/models/inpainting/comic-text-segmenter.pt')
         img_size_process=512
-        self.inpainter = LaMa('cuda')
+        self.device = 'cuda' if torch.cuda.is_available() else "mps" if torch.mps.is_available() else "cpu"
+        self.inpainter = LaMa(self.device)
         self.conf = Config(hd_strategy="Crop", hd_strategy_crop_trigger_size=img_size_process,
                            hd_strategy_resize_limit=img_size_process, hd_strategy_crop_margin=2)
 
     def inpaint(self, pil_img):
-        yolo_device='cuda'
+        yolo_device=self.device
         text_detec_result = self.bubble_detection(pil_img, device=yolo_device, half=True, imgsz=640, conf=0.5, verbose=False)[0] 
         txt_seg_result = self.text_segmentation(pil_img, device=yolo_device, half=True, imgsz=1024, conf=0.1, verbose=False)[0]
 

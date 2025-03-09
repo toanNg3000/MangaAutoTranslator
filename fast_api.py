@@ -13,6 +13,10 @@ from mltranslator.modules.jap_ocr import JapaneseReader
 from mltranslator.modules.llm import GeminiLLM
 
 
+class FullProcessRequest(BaseModel):
+    image_path: str
+
+
 class OCRRequest(BaseModel):
     image_path: str
     list_bboxes: List[
@@ -27,13 +31,12 @@ class TranslateRequest(BaseModel):
 class InpaintRequest(BaseModel):
     image_path: str
 
-DEVICE = "cuda"
 
 # Create FastAPI app
 app = FastAPI(title="Text Detection API")
 
 # Initialize text detector
-text_detector = TextDetector(device=DEVICE)
+text_detector = TextDetector()
 japanese_reader = JapaneseReader()
 llm = GeminiLLM()
 inpanitor = Inpaintor()
@@ -149,6 +152,61 @@ async def perform_inpaint(request: InpaintRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/full_process")
+async def perform_full_process(request: FullProcessRequest):
+    """ """
+    # read image
+    try:
+        pil_image = PIL.Image.open(request.image_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        list_bboxes = text_detector.get_detect_output_api(pil_image)
+        # TODO: use cached image instead of loading again
+        ocr_results = japanese_reader.get_list_orc_api(
+            request.image_path,
+            list_bboxes,
+        )
+
+        ocr_texts = [ocr_result["text"] for ocr_result in ocr_results.values()]
+        prompt_input = ""
+        for i, t in enumerate(ocr_texts):
+            prompt_input += f"{i}: {t}\n"
+        prompt_input += "\n"
+        translate_texts = llm.translate(prompt_input)
+
+        translate_texts = translate_texts.text
+        translate_texts = translate_texts.replace("<translate>", "").replace(
+            "</translate>", ""
+        )
+        translate_texts = translate_texts.split("\n")
+
+        translate_results = {}
+        for result in translate_texts:
+            result = result.strip()
+            if not result:
+                continue
+
+            first_colons_idx = result.find(": ")
+            idx = result[:first_colons_idx]
+            text = result[first_colons_idx + 2 :]
+            translate_results[idx] = text
+
+        inpaint_path = inpanitor.inpaint_api(request.image_path)
+
+        return {
+            "data": {
+                "list_bboxes": list_bboxes,
+                "ocr_results": ocr_results,
+                "translate_results": translate_results,
+                "inpaint_path": inpaint_path,
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Detection error: {str(e)}")
 
 
 # Optional: Add a health check endpoint
