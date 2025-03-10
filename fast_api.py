@@ -11,7 +11,7 @@ from mltranslator.modules.detection import TextDetector
 from mltranslator.modules.inpainting.inpaintor import Inpaintor
 from mltranslator.modules.jap_ocr import JapaneseReader
 from mltranslator.modules.llm import GeminiLLM
-
+from fastapi.middleware.cors import CORSMiddleware
 
 class FullProcessRequest(BaseModel):
     image_path: str
@@ -34,6 +34,15 @@ class InpaintRequest(BaseModel):
 
 # Create FastAPI app
 app = FastAPI(title="Text Detection API")
+    
+# Enable CORS for all endpoints
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Initialize text detector
 text_detector = TextDetector()
