@@ -12,6 +12,8 @@ from mltranslator.modules.inpainting.inpaintor import Inpaintor
 from mltranslator.modules.jap_ocr import JapaneseReader
 from mltranslator.modules.llm import GeminiLLM
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
 
 class FullProcessRequest(BaseModel):
     image_path: str
@@ -329,3 +331,5 @@ async def health_check():
 
 
 # To run: uvicorn fast_api:app --reload
+# if __name__ == "__main__":
+#     uvicorn.run(app, host="0.0.0.0", port=8000)

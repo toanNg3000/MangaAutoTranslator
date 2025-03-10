@@ -22,7 +22,7 @@ class TextDetector:
     ):
         self.yolo_model_path = yolo_model_path
         self.verbose = verbose
-        self.yolo_model = YOLO(yolo_model_path, verbose=verbose).to(device)
+        self.yolo_model = YOLO(yolo_model_path, verbose=self.verbose).to(device)
         self._device = device
 
     @property
