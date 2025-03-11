@@ -75,13 +75,10 @@ class TextDetector:
         yolo_img = np.array(image)
         h, w, _ = yolo_img.shape
         inpainted_img = np.copy(yolo_img)
-        # final_mask = np.zeros((h, w), dtype=np.uint8)  # Start with a black mask
 
         yolo_boxes = merge_bounding_boxes(yolo_dict)
         ocr_padding = 4
         ocr_padding_top_bottom = ocr_padding // 2
-        # inpaint_padding = 30
-        # inpaint_padding_top_bottom = 30
 
         # init payload
         list_result = []
@@ -99,29 +96,26 @@ class TextDetector:
                 2,
             )
 
-            x1_ocr = max(
-                int(xmin) - ocr_padding, 0
-            )  # Ensuring the value doesn't go below 0
-            y1_ocr = max(
-                int(ymin) - ocr_padding_top_bottom, 0
-            )  # Adding padding to the top
-            x2_ocr = min(
-                int(xmax) + ocr_padding, w
-            )  # Adjust according to the image width
-            y2_ocr = min(
-                int(ymax) + ocr_padding_top_bottom, h
-            )  # Adding padding to the bottom
-
-            # x1_inpaint = max(int(xmin) - inpaint_padding, 0)  # Ensuring the value doesn't go below 0
-            # y1_inpaint = max(int(ymin) - inpaint_padding_top_bottom, 0)  # Adding padding to the top
-            # x2_inpaint = min(int(xmax) + inpaint_padding, w)  # Adjust according to the image width
-            # y2_inpaint = min(int(ymax) + inpaint_padding_top_bottom, h)  # Adding padding to the bottom
+            # fmt: off
+            x1_ocr = max(int(xmin) - ocr_padding, 0)  # Ensuring the value doesn't go below 0
+            y1_ocr = max(int(ymin) - ocr_padding_top_bottom, 0)  # Adding padding to the top
+            x2_ocr = min(int(xmax) + ocr_padding, w)  # Adjust according to the image width
+            y2_ocr = min(int(ymax) + ocr_padding_top_bottom, h)  # Adding padding to the bottom
+            # fmt: on
 
             ocr_cropped_image = inpainted_img[y1_ocr:y2_ocr, x1_ocr:x2_ocr]
             list_result.append(ocr_cropped_image)
+
         cv2.putText(
-            yolo_img, "YOLO", (w // 2, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2
+            yolo_img,
+            "YOLO",
+            (w // 2, 100),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            2,
+            (255, 0, 0),
+            2,
         )
+
         return yolo_img, list_result
 
     def get_detect_output_api(self, image: PIL.ImageFile) -> typing.Dict:
