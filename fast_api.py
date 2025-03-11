@@ -3,6 +3,7 @@ import os
 from typing import List, Tuple
 
 import PIL
+from starlette.responses import FileResponse
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -323,6 +324,10 @@ async def perform_full_process_upload(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Detection error: {str(e)}")
 
+@app.get("/images/{file_path:path}")
+async def get_image(file_path: str):
+    print("???", file_path)
+    return FileResponse(f"{file_path}")
 
 # Optional: Add a health check endpoint
 @app.get("/")
