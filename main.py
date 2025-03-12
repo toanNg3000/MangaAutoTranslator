@@ -31,7 +31,7 @@ if __name__ == "__main__":
         if file_ext.lower() in supported_ext:
             image = Image.open(image_path)
             image = image.convert("RGB")
-            yolo_img, list_detect_result = my_text_detector.get_detect_output(image)
+            yolo_img, list_detect_result = my_text_detector.get_output_and_cropped_images(image)
             Image.fromarray(yolo_img).save(output_path)
             ocr_result = my_jap_reader.get_list_ocr(list_detect_result)
             ocr_results[image_path] = ocr_result

@@ -95,7 +95,7 @@ async def perform_ocr(request: OCRRequest):
     - OCR results with text for each bounding box
     """
     try:
-        ocr_results = japanese_reader.get_list_orc_api(
+        ocr_results = japanese_reader.get_list_orc_img_api(
             request.image_path, request.list_bboxes
         )
         return {"data": ocr_results}
@@ -157,10 +157,10 @@ async def perform_inpaint(request: InpaintRequest):
     - Output path to the inpainted image
     """
     try:
-        inpaint_result = inpanitor.inpaint_api(
+        inpaint_path = inpanitor.inpaint_api(
             request.image_path,
         )
-        return {"data": inpaint_result}
+        return {"data": inpaint_path}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -202,7 +202,7 @@ async def perform_full_process(request: FullProcessRequest):
 
         # TODO: use cached image instead of loading again
         # ocr
-        ocr_results = japanese_reader.get_list_orc_api(
+        ocr_results = japanese_reader.get_list_orc_img_api(
             request.image_path,
             list_bboxes,
         )
@@ -235,8 +235,7 @@ async def perform_full_process(request: FullProcessRequest):
             translate_results[idx] = text
 
         # inpaint
-        inpaint_path = inpanitor.inpaint_api(request.image_path)
-        inpaint_path = inpaint_path["inpaint_path"]
+        inpaint_path = inpanitor.inpaint_api(pil_image)
 
         image_datas = {}
         for i, (bbox, ocr, translation) in enumerate(
@@ -272,7 +271,7 @@ async def perform_full_process_upload(file: UploadFile = File(...)):
 
         # TODO: use cached image instead of loading again
         # ocr
-        ocr_results = japanese_reader.get_list_orc_from_img_api(
+        ocr_results = japanese_reader.get_list_orc_api(
             pil_image,
             list_bboxes,
         )
@@ -305,8 +304,8 @@ async def perform_full_process_upload(file: UploadFile = File(...)):
             translate_results[idx] = text
 
         # inpaint
-        inpaint_path = inpanitor.inpaint_from_image_api(pil_image)
-        inpaint_path = inpaint_path["inpaint_path"]
+        inpaint_path = inpanitor.inpaint_api(pil_image)
+        # inpaint_path = inpaint_path["inpaint_path"]
 
         image_datas = {}
         for i, (bbox, ocr, translation) in enumerate(
@@ -336,5 +335,5 @@ async def health_check():
 
 
 # To run: uvicorn fast_api:app --reload
-# if __name__ == "__main__":
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

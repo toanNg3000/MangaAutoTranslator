@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import numpy as np
 from manga_ocr import MangaOcr
-from PIL import Image, ImageFile
+from PIL import Image
 
 from mltranslator import PROJECT_DIR
 from mltranslator.utils.helper import set_image_dpi
@@ -45,7 +45,7 @@ class JapaneseReader:
             list_ocr_texts.append(txt)
         return list_ocr_texts
 
-    def get_list_orc_api(self, image_path: str, list_bboxes: Tuple[int, int, int, int]):
+    def get_list_orc_img_api(self, image_path: str, list_bboxes: Tuple[int, int, int, int]):
         img = Image.open(image_path)
         img = img.convert("RGB")
         w, h = img.size
@@ -74,10 +74,10 @@ class JapaneseReader:
             results[i] = {"bboxes": bboxes, "text": list_ocr_text[i]}
         return results
 
-    def get_list_orc_from_img_api(self, img: ImageFile, list_bboxes: Tuple[int, int, int, int]):
-        pil_img = img.convert("RGB")
+    def get_list_orc_api(self, image: Image.Image, list_bboxes: Tuple[int, int, int, int]):
+        pil_img = image.convert("RGB")
         w, h = pil_img.size
-        np_img = np.array(img)
+        np_img = np.array(image)
         ocr_padding = 4
         ocr_padding_top_bottom = ocr_padding // 2
         list_result = []
