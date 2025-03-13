@@ -167,7 +167,7 @@ class Inpaintor:
                 pil_mask = PIL.Image.fromarray(mask_np).resize((w_crop, h_crop))
                 final_mask[y1_ocr:y2_ocr, x1_ocr:x2_ocr] = np.array(pil_mask)
 
-        kernel_size = 10
+        kernel_size = 5
         kernel = np.ones((kernel_size, kernel_size), np.uint8)
 
         final_mask = cv2.erode(final_mask, kernel)
