@@ -3,11 +3,12 @@ import os
 from typing import List, Tuple
 
 import PIL
-from starlette.responses import FileResponse
+import torch
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from starlette.responses import FileResponse
 
 from mltranslator import PROJECT_DIR
 from mltranslator.modules.detection import TextDetector
@@ -48,8 +49,13 @@ app.add_middleware(
 )
 
 # Initialize text detector
-text_detector = TextDetector()
-japanese_reader = JapaneseReader()
+DEVICE = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps" if torch.mps.is_available() else "cpu"
+)
+text_detector = TextDetector(device=DEVICE)
+japanese_reader = JapaneseReader(device=DEVICE)
 llm = GeminiLLM()
 inpanitor = Inpaintor()
 
@@ -95,7 +101,7 @@ async def perform_ocr(request: OCRRequest):
     - OCR results with text for each bounding box
     """
     try:
-        ocr_results = japanese_reader.get_list_orc_img_api(
+        ocr_results = japanese_reader.get_list_orc_from_path_api(
             request.image_path, request.list_bboxes
         )
         return {"data": ocr_results}
@@ -116,29 +122,7 @@ async def translate(request: TranslateRequest):
     - Translated text
     """
     try:
-        prompt_input = ""
-        for i, t in enumerate(request.input_texts):
-            prompt_input += f"{i}: {t}\n"
-        prompt_input += "\n"
-        translate_results = llm.translate(prompt_input)
-
-        translate_results = translate_results.text
-        translate_results = translate_results.replace("<translate>", "").replace(
-            "</translate>", ""
-        )
-        translate_results = translate_results.split("\n")
-
-        results = {}
-        for result in translate_results:
-            result = result.strip()
-            if not result:
-                continue
-
-            first_colons_idx = result.find(": ")
-            idx = result[:first_colons_idx]
-            text = result[first_colons_idx + 2 :]
-            results[idx] = text
-
+        results = llm.translate_api(request.input_texts)
         return {"data": results}
 
     except Exception as e:
@@ -202,44 +186,22 @@ async def perform_full_process(request: FullProcessRequest):
 
         # TODO: use cached image instead of loading again
         # ocr
-        ocr_results = japanese_reader.get_list_orc_img_api(
+        ocr_texts = japanese_reader.get_list_orc_from_path_api(
             request.image_path,
             list_bboxes,
         )
 
-        ocr_texts = [ocr_result["text"] for ocr_result in ocr_results.values()]
+        # ocr_texts = [ocr_result["text"] for ocr_result in ocr_results.values()]
 
         # translate
-        # TODO: refactor this
-        prompt_input = ""
-        for i, t in enumerate(ocr_texts):
-            prompt_input += f"{i}: {t}\n"
-        prompt_input += "\n"
-        translate_texts = llm.translate(prompt_input)
-
-        translate_texts = translate_texts.text
-        translate_texts = translate_texts.replace("<translate>", "").replace(
-            "</translate>", ""
-        )
-        translate_texts = translate_texts.split("\n")
-
-        translate_results = {}
-        for result in translate_texts:
-            result = result.strip()
-            if not result:
-                continue
-
-            first_colons_idx = result.find(": ")
-            idx = result[:first_colons_idx]
-            text = result[first_colons_idx + 2 :]
-            translate_results[idx] = text
+        translated_texts = llm.translate_api(ocr_texts)
 
         # inpaint
         inpaint_path = inpanitor.inpaint_api(pil_image)
 
         image_datas = {}
         for i, (bbox, ocr, translation) in enumerate(
-            zip(list_bboxes, ocr_texts, translate_results.values())
+            zip(list_bboxes, ocr_texts, translated_texts)
         ):
             image_data = {
                 "bbox": bbox,
@@ -271,37 +233,15 @@ async def perform_full_process_upload(file: UploadFile = File(...)):
 
         # TODO: use cached image instead of loading again
         # ocr
-        ocr_results = japanese_reader.get_list_orc_api(
+        list_ocr_text = japanese_reader.get_list_orc_api(
             pil_image,
             list_bboxes,
         )
 
-        ocr_texts = [ocr_result["text"] for ocr_result in ocr_results.values()]
+        # list_ocr_text = [ocr_result["text"] for ocr_result in ocr_results.values()]
 
         # translate
-        # TODO: refactor this
-        prompt_input = ""
-        for i, t in enumerate(ocr_texts):
-            prompt_input += f"{i}: {t}\n"
-        prompt_input += "\n"
-        translate_texts = llm.translate(prompt_input)
-
-        translate_texts = translate_texts.text
-        translate_texts = translate_texts.replace("<translate>", "").replace(
-            "</translate>", ""
-        )
-        translate_texts = translate_texts.split("\n")
-
-        translate_results = {}
-        for result in translate_texts:
-            result = result.strip()
-            if not result:
-                continue
-
-            first_colons_idx = result.find(": ")
-            idx = result[:first_colons_idx]
-            text = result[first_colons_idx + 2 :]
-            translate_results[idx] = text
+        translated_texts = llm.translate_api(list_ocr_text)
 
         # inpaint
         inpaint_path = inpanitor.inpaint_api(pil_image)
@@ -309,7 +249,7 @@ async def perform_full_process_upload(file: UploadFile = File(...)):
 
         image_datas = {}
         for i, (bbox, ocr, translation) in enumerate(
-            zip(list_bboxes, ocr_texts, translate_results.values())
+            zip(list_bboxes, list_ocr_text, translated_texts)
         ):
             image_data = {
                 "bbox": bbox,
@@ -323,10 +263,12 @@ async def perform_full_process_upload(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Detection error: {str(e)}")
 
+
 @app.get("/images/{file_path:path}")
 async def get_image(file_path: str):
     print("???", file_path)
     return FileResponse(f"{file_path}")
+
 
 # Optional: Add a health check endpoint
 @app.get("/")

@@ -1,8 +1,8 @@
-import typing
+from typing import List
 
 import cv2
 import numpy as np
-import PIL
+from PIL import Image
 from ultralytics import YOLO
 
 from mltranslator import PROJECT_DIR
@@ -42,7 +42,7 @@ class TextDetector:
     def to(self, device: str):
         self.device = device
 
-    def get_detect_output_api(self, image: PIL.ImageFile) -> typing.List:
+    def get_detect_output_api(self, image: Image.Image) -> List:
         # The existing implementation remains the same as in your original code
         list_sliced_images = split_image(image)
         list_sliced_images_size = []
@@ -78,7 +78,7 @@ class TextDetector:
 
         return bounding_boxes
 
-    def get_output_and_cropped_images(self, image: PIL.ImageFile):
+    def get_output_and_cropped_images(self, image: Image.Image):
         drawn_image = np.array(image)
         h, w, *_ = drawn_image.shape
         inpainted_img = np.copy(drawn_image)

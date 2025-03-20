@@ -45,11 +45,18 @@ class JapaneseReader:
             list_ocr_texts.append(txt)
         return list_ocr_texts
 
-    def get_list_orc_img_api(self, image_path: str, list_bboxes: Tuple[int, int, int, int]):
-        img = Image.open(image_path)
-        img = img.convert("RGB")
-        w, h = img.size
-        np_img = np.array(img)
+    def get_list_orc_from_path_api(
+        self, image_path: str, list_bboxes: Tuple[int, int, int, int]
+    ):
+        pil_image = Image.open(image_path)
+        pil_image = pil_image.convert("RGB")
+        return self.get_list_orc_api(pil_image, list_bboxes)
+
+    def get_list_orc_api(
+        self, pil_image: Image.Image, list_bboxes: Tuple[int, int, int, int]
+    ):
+        w, h = pil_image.size
+        np_img = np.array(pil_image)
         ocr_padding = 4
         ocr_padding_top_bottom = ocr_padding // 2
         list_result = []
@@ -69,35 +76,4 @@ class JapaneseReader:
 
         list_ocr_text = self.get_list_ocr(list_result)
 
-        results = {}
-        for i, bboxes in enumerate(list_bboxes):
-            results[i] = {"bboxes": bboxes, "text": list_ocr_text[i]}
-        return results
-
-    def get_list_orc_api(self, image: Image.Image, list_bboxes: Tuple[int, int, int, int]):
-        pil_img = image.convert("RGB")
-        w, h = pil_img.size
-        np_img = np.array(image)
-        ocr_padding = 4
-        ocr_padding_top_bottom = ocr_padding // 2
-        list_result = []
-
-        for idx, box in enumerate(list_bboxes):
-            xmin, ymin, xmax, ymax = box
-
-            # fmt: off
-            x1_ocr = max(int(xmin) - ocr_padding, 0)  # Ensuring the value doesn't go below 0
-            y1_ocr = max(int(ymin) - ocr_padding_top_bottom, 0)  # Adding padding to the top
-            x2_ocr = min(int(xmax) + ocr_padding, w)  # Adjust according to the image width
-            y2_ocr = min(int(ymax) + ocr_padding_top_bottom, h)  # Adding padding to the bottom
-            # fmt: on
-
-            ocr_cropped_image = np_img[y1_ocr:y2_ocr, x1_ocr:x2_ocr]
-            list_result.append(ocr_cropped_image)
-
-        list_ocr_text = self.get_list_ocr(list_result)
-
-        results = {}
-        for i, bboxes in enumerate(list_bboxes):
-            results[i] = {"bboxes": bboxes, "text": list_ocr_text[i]}
-        return results
+        return list_ocr_text

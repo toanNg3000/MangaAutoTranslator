@@ -4,24 +4,23 @@ from typing import List
 
 import cv2
 import numpy as np
-import PIL.Image
 import torch
+from PIL import Image
 from ultralytics import YOLO
 
 from mltranslator import PROJECT_DIR
 from mltranslator.modules.detection import TextDetector
 from mltranslator.modules.inpainting.lama import LaMa
 from mltranslator.modules.inpainting.schema import Config
-from mltranslator.utils.detection import (
-    bubble_interior_bounds,
-    combine_results,
-    make_bubble_mask,
-)
-from mltranslator.utils.textblock import TextBlock, sort_regions, visualize_textblocks
+from mltranslator.utils.detection import combine_results
+from mltranslator.utils.textblock import TextBlock, sort_regions
+
+# TODO: this path should be configurable
+INPAINT_DIR = os.path.join(PROJECT_DIR, "dataset/test_inpaint")
 
 
 def generate_mask(img: np.ndarray, blk_list: List[TextBlock], default_kernel_size=5):
-    h, w, c = img.shape
+    h, w, *_ = img.shape
     mask = np.zeros((h, w), dtype=np.uint8)  # Start with a black mask
 
     for blk in blk_list:
@@ -67,17 +66,13 @@ class Inpaintor:
             if torch.cuda.is_available()
             else "mps" if torch.mps.is_available() else "cpu"
         )
-        self.text_detection = YOLO(
-            f"{PROJECT_DIR}/mltranslator/models/detection/best.pt"
-        ).to(self.device)
-        self.text_segmentation = YOLO(
-            f"{PROJECT_DIR}/mltranslator/models/inpainting/comic-text-segmenter.pt"
-        ).to(self.device)
+        # fmt: off
+        self.text_detection = YOLO(f"{PROJECT_DIR}/mltranslator/models/detection/best.pt").to(self.device)
+        self.text_segmentation = YOLO(f"{PROJECT_DIR}/mltranslator/models/inpainting/comic-text-segmenter.pt").to(self.device)
 
         self.text_detectionv2 = TextDetector(verbose=False)
-        self.segmentation_model = YOLO(
-            f"{PROJECT_DIR}/mltranslator/models/text_segment/best.pt", verbose=False
-        ).to(self.device)
+        self.segmentation_model = YOLO(f"{PROJECT_DIR}/mltranslator/models/text_segment/best.pt", verbose=False).to(self.device)
+        # fmt: on
 
         img_size_process = 512
 
@@ -89,14 +84,19 @@ class Inpaintor:
             hd_strategy_crop_margin=2,
         )
 
-    #deprecated
-    def inpaint(self, pil_img):
+    # deprecated
+    def inpaint(self, pil_image: Image.Image):
         yolo_device = self.device
         text_detec_result = self.text_detection(
-            pil_img, device=yolo_device, half=True, imgsz=640, conf=0.5, verbose=False
+            pil_image, device=yolo_device, half=True, imgsz=640, conf=0.5, verbose=False
         )[0]
         txt_seg_result = self.text_segmentation(
-            pil_img, device=yolo_device, half=True, imgsz=1024, conf=0.1, verbose=False
+            pil_image,
+            device=yolo_device,
+            half=True,
+            imgsz=1024,
+            conf=0.1,
+            verbose=False,
         )[0]
 
         combined = combine_results(text_detec_result, txt_seg_result)
@@ -115,20 +115,19 @@ class Inpaintor:
         if blk_list:
             blk_list = sort_regions(blk_list)
 
-        mask = generate_mask(np.array(pil_img), blk_list)
+        mask = generate_mask(np.array(pil_image), blk_list)
 
-        inpaint_input_img = self.inpainter(np.array(pil_img), mask, self.conf)
+        inpaint_input_img = self.inpainter(np.array(pil_image), mask, self.conf)
         inpaint_input_img = cv2.convertScaleAbs(inpaint_input_img)
         inpaint_input_img = cv2.cvtColor(inpaint_input_img, cv2.COLOR_BGR2RGB)
         return mask, inpaint_input_img
 
-    def inpaint_v2(self, pil_img):
-        bboxes = self.text_detectionv2.get_detect_output_api(pil_img)
-        # print("OK")
+    def inpaint_v2(self, pil_image: Image.Image):
+        bboxes = self.text_detectionv2.get_detect_output_api(pil_image)
         ocr_padding = 4
         ocr_padding_top_bottom = ocr_padding // 2
-        np_original_img = np.array(pil_img)
-        h, w = pil_img.size
+        np_original_img = np.array(pil_image)
+        h, w = pil_image.size
         final_mask = np.zeros((w, h), dtype=np.uint8)
 
         for box in bboxes:
@@ -146,7 +145,7 @@ class Inpaintor:
                 y2_ocr = ymax
             # fmt: on
             crop_img = np_original_img[y1_ocr:y2_ocr, x1_ocr:x2_ocr]
-            h_crop, w_crop, _ = crop_img.shape
+            h_crop, w_crop, *_ = crop_img.shape
             seg_results = self.segmentation_model(
                 crop_img,
                 verbose=False,
@@ -164,7 +163,7 @@ class Inpaintor:
                 # Scale for visualizing results
                 mask = torch.any(masks, dim=0).int() * 255
                 mask_np = mask.cpu().numpy().astype(np.uint8)
-                pil_mask = PIL.Image.fromarray(mask_np).resize((w_crop, h_crop))
+                pil_mask = Image.fromarray(mask_np).resize((w_crop, h_crop))
                 final_mask[y1_ocr:y2_ocr, x1_ocr:x2_ocr] = np.array(pil_mask)
 
         kernel_size = 5
@@ -172,35 +171,32 @@ class Inpaintor:
 
         final_mask = cv2.erode(final_mask, kernel)
         final_mask = cv2.dilate(final_mask, kernel, iterations=3)
-        inpaint_input_img = self.inpainter(np.array(pil_img), final_mask, self.conf)
+        inpaint_input_img = self.inpainter(np.array(pil_image), final_mask, self.conf)
         inpaint_input_img = cv2.convertScaleAbs(inpaint_input_img)
         inpaint_input_img = cv2.cvtColor(inpaint_input_img, cv2.COLOR_BGR2RGB)
         return final_mask, inpaint_input_img
 
     def inpaint_from_path_api(self, image_path: str) -> dict:
-        pil_image = PIL.Image.open(image_path)
+        pil_image = Image.open(image_path)
+        pil_image = pil_image.convert("RGB")
         inpaint_path = self.inpaint_api(pil_image)
         return inpaint_path
 
-    def inpaint_api(self, image: PIL.Image.Image) -> dict:
-        pil_image = image.convert("RGB")
-
-        mask, inpaint_input_img = self.inpaint_v2(pil_image)
+    def inpaint_api(self, pil_image: Image.Image) -> dict:
+        pil_image_RGB = pil_image.convert("RGB")
+        _, inpaint_input_img = self.inpaint_v2(pil_image_RGB)
         image_name = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # TODO: this path should be configurable
-        inpaint_dir = "dataset/test_inpaint"
-        os.makedirs(inpaint_dir, exist_ok=True)
-        inpaint_path = os.path.join(inpaint_dir, f"{image_name}.jpg")
+        os.makedirs(INPAINT_DIR, exist_ok=True)
+        inpaint_path = os.path.join(INPAINT_DIR, f"{image_name}.jpg")
 
-        PIL.Image.fromarray(inpaint_input_img).save(inpaint_path)
+        Image.fromarray(inpaint_input_img).save(inpaint_path)
 
         return inpaint_path
 
-    def inpaint_custom(self, pil_img, custom_mask):
+    def inpaint_custom(self, pil_image: Image.Image, custom_mask: np.ndarray):
         # print("Custom mask")
-        inpaint_input_img = self.inpainter(np.array(pil_img), custom_mask, self.conf)
+        inpaint_input_img = self.inpainter(np.array(pil_image), custom_mask, self.conf)
         inpaint_input_img = cv2.convertScaleAbs(inpaint_input_img)
         inpaint_input_img = cv2.cvtColor(inpaint_input_img, cv2.COLOR_BGR2RGB)
-        # cv2.imwrite("inpainted.jpg", inpaint_input_img)
         return custom_mask, inpaint_input_img
