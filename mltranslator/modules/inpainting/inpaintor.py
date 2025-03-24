@@ -185,8 +185,8 @@ class Inpaintor:
     def inpaint_api(self, pil_image: Image.Image) -> dict:
         pil_image_RGB = pil_image.convert("RGB")
         _, inpaint_input_img = self.inpaint_v2(pil_image_RGB)
-        image_name = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
+        image_name = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         os.makedirs(INPAINT_DIR, exist_ok=True)
         inpaint_path = os.path.join(INPAINT_DIR, f"{image_name}.jpg")
 
@@ -195,8 +195,18 @@ class Inpaintor:
         return inpaint_path
 
     def inpaint_custom(self, pil_image: Image.Image, custom_mask: np.ndarray):
-        # print("Custom mask")
         inpaint_input_img = self.inpainter(np.array(pil_image), custom_mask, self.conf)
         inpaint_input_img = cv2.convertScaleAbs(inpaint_input_img)
         inpaint_input_img = cv2.cvtColor(inpaint_input_img, cv2.COLOR_BGR2RGB)
+
         return custom_mask, inpaint_input_img
+
+    def inpaint_custom_mask_api(self, pil_image: Image.Image, custom_mask: np.ndarray):
+        _, inpaint_input_img = self.inpaint_custom(pil_image, custom_mask)
+
+        image_name = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        os.makedirs(INPAINT_DIR, exist_ok=True)
+        inpaint_path = os.path.join(INPAINT_DIR, f"{image_name}.jpg")
+        Image.fromarray(inpaint_input_img).save(inpaint_path)
+
+        return inpaint_path

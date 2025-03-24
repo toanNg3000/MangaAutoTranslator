@@ -2,6 +2,7 @@ import io
 import os
 from typing import List, Tuple
 
+import numpy as np
 import PIL
 import torch
 import uvicorn
@@ -15,6 +16,7 @@ from mltranslator.modules.detection import TextDetector
 from mltranslator.modules.inpainting.inpaintor import Inpaintor
 from mltranslator.modules.jap_ocr import JapaneseReader
 from mltranslator.modules.llm import GeminiLLM
+from mltranslator.utils.inpainting import create_mask_from_polygon
 
 
 class FullProcessRequest(BaseModel):
@@ -34,6 +36,11 @@ class TranslateRequest(BaseModel):
 
 class InpaintRequest(BaseModel):
     image_path: str
+
+
+class InpaintRequestPolygon(BaseModel):
+    image_path: str
+    list_points: List[Tuple[int, int]]
 
 
 # Create FastAPI app
@@ -132,18 +139,47 @@ async def translate(request: TranslateRequest):
 @app.post("/inpaint")
 async def perform_inpaint(request: InpaintRequest):
     """
-    Endpoint for performing OCR on specified bounding boxes
-
     Expects:
     - image_path: Path to the image file
 
     Returns:
     - Output path to the inpainted image
     """
+    # read image
     try:
-        inpaint_path = inpanitor.inpaint_api(
-            request.image_path,
-        )
+        pil_image = PIL.Image.open(request.image_path)
+        pil_image = pil_image.convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        inpaint_path = inpanitor.inpaint_api(pil_image)
+        return {"data": inpaint_path}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/inpaint-polygon")
+async def perform_inpaint_polygon(request: InpaintRequestPolygon):
+    """
+    Expects:
+    - image_path: Path to the image file
+    - list_points: list of points in 2D spaces making up the polygon. E.x: [(0,0), (1,0), (1,1)]
+
+    Returns:
+    - Output path to the inpainted image
+    """
+    try:
+        pil_image = PIL.Image.open(request.image_path)
+        pil_image = pil_image.convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        mask = create_mask_from_polygon(pil_image.size, request.list_points)
+        mask = np.array(mask)
+        inpaint_path = inpanitor.inpaint_custom_mask_api(pil_image, mask)
         return {"data": inpaint_path}
 
     except Exception as e:
@@ -231,21 +267,14 @@ async def perform_full_process_upload(file: UploadFile = File(...)):
     try:
         list_bboxes = text_detector.get_detect_output_api(pil_image)
 
-        # TODO: use cached image instead of loading again
-        # ocr
         list_ocr_text = japanese_reader.get_list_orc_api(
             pil_image,
             list_bboxes,
         )
 
-        # list_ocr_text = [ocr_result["text"] for ocr_result in ocr_results.values()]
-
-        # translate
         translated_texts = llm.translate_api(list_ocr_text)
 
-        # inpaint
         inpaint_path = inpanitor.inpaint_api(pil_image)
-        # inpaint_path = inpaint_path["inpaint_path"]
 
         image_datas = {}
         for i, (bbox, ocr, translation) in enumerate(

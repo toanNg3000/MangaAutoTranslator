@@ -3,14 +3,15 @@
 import io
 import os
 import sys
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from urllib.parse import urlparse
 import cv2
-from PIL import Image, ImageOps, PngImagePlugin
+from PIL import Image, ImageOps, PngImagePlugin, ImageDraw
 import numpy as np
 import torch
-#from ..inpainting.const import MPS_SUPPORT_MODELS
+
+# from ..inpainting.const import MPS_SUPPORT_MODELS
 from loguru import logger
 from torch.hub import download_url_to_file, get_dir
 import hashlib
@@ -295,3 +296,14 @@ def only_keep_largest_contour(mask: np.ndarray) -> List[np.ndarray]:
         return cv2.drawContours(new_mask, contours, max_index, 255, -1)
     else:
         return mask
+
+
+def create_mask_from_polygon(
+    size: Tuple[int, int],
+    coords: List[Tuple[int, int]],
+) -> Image.Image:
+    mask = Image.new(mode="L", size=size, color=0)
+    draw = ImageDraw.Draw(mask)
+    draw.polygon(xy=coords, fill=255, outline=255, width=1)
+    return mask
+    # return np.zeros((w, h), dtype=np.int8)
