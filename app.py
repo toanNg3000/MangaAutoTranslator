@@ -217,6 +217,7 @@ async def perform_inpaint_polygon_upload(
     try:
         contents = await file.read()
         pil_image = PIL.Image.open(io.BytesIO(contents))
+        pil_image = pil_image.convert("RGB")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
