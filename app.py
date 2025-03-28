@@ -1,14 +1,15 @@
 import io
+import json
 import os
-from typing import List, Tuple
+from typing import Annotated, Any, List, Tuple
 
 import numpy as np
 import PIL
 import torch
 import uvicorn
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from starlette.responses import FileResponse
 
 from mltranslator import PROJECT_DIR
@@ -41,6 +42,17 @@ class InpaintRequest(BaseModel):
 class InpaintRequestPolygon(BaseModel):
     image_path: str
     list_points: List[Tuple[int, int]]
+
+
+class InpaintRequestPolygonUpload(BaseModel):
+    list_points: List[Tuple[int, int]]
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_to_json(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return cls(**json.loads(value))
+        return value
 
 
 # Create FastAPI app
@@ -173,6 +185,38 @@ async def perform_inpaint_polygon(request: InpaintRequestPolygon):
     try:
         pil_image = PIL.Image.open(request.image_path)
         pil_image = pil_image.convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        mask = create_mask_from_polygon(pil_image.size, request.list_points)
+        mask = np.array(mask)
+        inpaint_path = inpanitor.inpaint_custom_mask_api(pil_image, mask)
+        return {"data": inpaint_path}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/inpaint-polygon-upload")
+async def perform_inpaint_polygon_upload(
+    file: Annotated[UploadFile, File()],
+    request: Annotated[InpaintRequestPolygonUpload, Body()],
+):
+    """
+    Expects:
+    - file: uploaded file
+    - list_points: list of points in 2D spaces making up the polygon. E.x: [(0,0), (1,0), (1,1)]
+
+    Returns:
+    - Output path to the inpainted image
+    """
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    try:
+        contents = await file.read()
+        pil_image = PIL.Image.open(io.BytesIO(contents))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

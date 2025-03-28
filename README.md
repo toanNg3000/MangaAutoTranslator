@@ -30,7 +30,9 @@ set GEMINI_API_KEY=YOUR_API_KEY # on Windows
 simply run:
 
 ```sh
-uvicorn fast_api:app
+python app.py
+# or
+uvicorn app:app
 ```
 
 then go to the `/docs` pages
