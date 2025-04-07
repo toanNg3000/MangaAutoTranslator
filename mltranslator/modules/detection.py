@@ -61,12 +61,12 @@ class TextDetector:
                 list_sliced_images[i],
                 device=self.device,
                 half=False,
-                conf=0.5,
+                conf=0.1,
                 iou=0.6,
                 augment=False,
                 verbose=self.verbose,
             )[0]
-
+            print(result.boxes.conf)
             for box in result.boxes:
                 xmin, ymin, xmax, ymax = map(int, box.xyxy[0].tolist())
                 if i > 0:
@@ -112,3 +112,12 @@ class TextDetector:
             cropped_images.append(ocr_cropped_image)
 
         return drawn_image, cropped_images
+
+class BubbleDetector(TextDetector):
+    def __init__(
+        self,
+        yolo_model_path: str = f"{PROJECT_DIR}/mltranslator/models/detection/bubble_dectector_nano.pt",
+        verbose: bool = False,
+        device: str = "cpu",
+    ):
+        super().__init__(yolo_model_path, verbose, device)
