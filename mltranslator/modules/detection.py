@@ -66,7 +66,7 @@ class TextDetector:
                 augment=False,
                 verbose=self.verbose,
             )[0]
-            print(result.boxes.conf)
+            
             for box in result.boxes:
                 xmin, ymin, xmax, ymax = map(int, box.xyxy[0].tolist())
                 if i > 0:

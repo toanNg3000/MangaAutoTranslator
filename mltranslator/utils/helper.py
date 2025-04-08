@@ -103,3 +103,41 @@ def set_image_dpi(image_np):
     im_resized_np = cv2.cvtColor(np.array(im_resized), cv2.COLOR_RGB2BGR)
 
     return im_resized_np
+
+def compute_iou(bubble_bbox, text_bbox):
+    ax1, ay1, ax2, ay2 = bubble_bbox
+    bx1, by1, bx2, by2 = text_bbox
+
+    ix1 = max(ax1, bx1)
+    iy1 = max(ay1, by1)
+    ix2 = min(ax2, bx2)
+    iy2 = min(ay2, by2)
+
+    iw = max(0, ix2 - ix1)
+    ih = max(0, iy2 - iy1)
+    intersection = iw * ih
+
+    text_area = (bx2 - bx1) * (by2 - by1)
+    return intersection/text_area
+
+def mapping_bubbles_with_texts(bubble_bboxes, text_bboxes, THRESHOLD:float=0.9):
+    matched_text_indices = set()
+    matched_bubble_indices = set()
+    matches = {}
+
+    for bubble_index, bubble in enumerate(bubble_bboxes):
+        if bubble_index in matched_bubble_indices:
+            continue
+
+        for text_index, text in enumerate(text_bboxes):
+            if text_index in matched_text_indices:
+                continue
+
+            iou = compute_iou(bubble, text)
+            if iou > THRESHOLD:
+                matches[text_index] = bubble_index
+                matched_bubble_indices.add(bubble_index)
+                matched_text_indices.add(text_index)
+                break  # move to the next bubble
+    
+    return matches

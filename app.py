@@ -9,51 +9,16 @@ import torch
 import uvicorn
 from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, model_validator
 from starlette.responses import FileResponse
 
 from mltranslator import PROJECT_DIR
-from mltranslator.modules.detection import TextDetector
+from mltranslator.api import FullProcessRequest, OCRRequest, TranslateRequest, InpaintRequest, InpaintRequestPolygon, InpaintRequestPolygonUpload
+from mltranslator.modules.detection import TextDetector, BubbleDetector
 from mltranslator.modules.inpainting.inpaintor import Inpaintor
 from mltranslator.modules.jap_ocr import JapaneseReader
 from mltranslator.modules.llm import GeminiLLM
 from mltranslator.utils.inpainting import create_mask_from_polygon
-
-
-class FullProcessRequest(BaseModel):
-    image_path: str
-
-
-class OCRRequest(BaseModel):
-    image_path: str
-    list_bboxes: List[
-        Tuple[int, int, int, int]
-    ]  # List of bounding boxes as lists of integers
-
-
-class TranslateRequest(BaseModel):
-    input_texts: List[str]
-
-
-class InpaintRequest(BaseModel):
-    image_path: str
-
-
-class InpaintRequestPolygon(BaseModel):
-    image_path: str
-    list_points: List[Tuple[int, int]]
-
-
-class InpaintRequestPolygonUpload(BaseModel):
-    list_points: List[Tuple[int, int]]
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_to_json(cls, value: Any) -> Any:
-        if isinstance(value, str):
-            return cls(**json.loads(value))
-        return value
-
+from mltranslator.utils.helper import mapping_bubbles_with_texts
 
 # Create FastAPI app
 app = FastAPI(title="Text Detection API")
@@ -74,6 +39,7 @@ DEVICE = (
     else "mps" if torch.mps.is_available() else "cpu"
 )
 text_detector = TextDetector(device=DEVICE)
+bubble_detector = BubbleDetector(device=DEVICE)
 japanese_reader = JapaneseReader(device=DEVICE)
 llm = GeminiLLM()
 inpanitor = Inpaintor()
@@ -310,23 +276,31 @@ async def perform_full_process_upload(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
     try:
-        list_bboxes = text_detector.get_detect_output_api(pil_image)
+        list_text_bboxes = text_detector.get_detect_output_api(pil_image)
+        list_bubble_bboxes = bubble_detector.get_detect_output_api(pil_image)
+        
+        matches = mapping_bubbles_with_texts(list_bubble_bboxes, list_text_bboxes)
 
         list_ocr_text = japanese_reader.get_list_orc_api(
             pil_image,
-            list_bboxes,
+            list_text_bboxes,
         )
 
         translated_texts = llm.translate_api(list_ocr_text)
 
         inpaint_path = inpanitor.inpaint_api(pil_image)
-
+    
         image_datas = {}
-        for i, (bbox, ocr, translation) in enumerate(
-            zip(list_bboxes, list_ocr_text, translated_texts)
+        for i, (text_bbox, ocr, translation) in enumerate(
+            zip(list_text_bboxes, list_ocr_text, translated_texts)
         ):
+            bubble_bbox = (-1,-1,-1,-1)
+            if i in matches.keys():
+                bubble_bbox = list_bubble_bboxes[matches[i]]
+
             image_data = {
-                "bbox": bbox,
+                "bubble_bbox": bubble_bbox,
+                "text_bbox": text_bbox,
                 "ocr_text": ocr,
                 "translation": translation,
             }
